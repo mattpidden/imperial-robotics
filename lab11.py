@@ -21,49 +21,54 @@ import brickpi3 # import the BrickPi3 drivers
 
 BP = brickpi3.BrickPi3() # Create an instance of the BrickPi3 class. BP will be the BrickPi3 object.
 
-try:
+# cm_per_degree = (360 * 5) / Distance in cm
+
+# def driveDistance(cm):
+#     BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A))
+#     BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B))
+
+#     target_deg = cm / cm_per_degree
+#     BP.set_motor_position(BP.PORT_A, target_deg)
+#     BP.set_motor_position(BP.PORT_B, target_deg)
+
+#     while True:
+#         status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
+#         status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
+
+#         if status_a == 0 and status_b == 0:
+#             break
+
+
+def main():
     try:
         BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A)) # reset encoder A
         BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B)) # reset encoder D
     except IOError as error:
         print(error)
     
-    # BP.set_motor_power(BP.PORT_B, BP.MOTOR_FLOAT)                      # float motor D
+    BP.set_motor_limits(BP.PORT_A, 50, 360)
+    BP.set_motor_limits(BP.PORT_B, 50, 360)
 
-    BP.set_motor_limits(BP.PORT_A, 50)                                     # optionally set a power limit
-    BP.set_motor_limits(BP.PORT_B, 50)   
+    target_degrees = 360 * 5     # 5 revolutions
+    tolerance = 5
     
-    
-    
-    timeout = 0.0
-    for i in range(1):
-        # The following BP.get_motor_encoder function returns the encoder value
-        try:
-            target = BP.get_motor_encoder(BP.PORT_B)     # read motor D's position
-        except IOError as error:
-            print(error)
-        
-        BP.set_motor_position(BP.PORT_A, 360 * 5)
-        BP.set_motor_position(BP.PORT_B, 360 * 5)
-        # print(("Motor A Target Degrees Per Second: %d" % target), "  Motor A Status: ", BP.get_motor_status(BP.PORT_A))
-        done = False
-        while !done:
-            status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
-            status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_A)
-            
-            if status_a == 0 && status_b == 0:
-                done = True
-        
-        
-        #BP.set_motor_dps(BP.PORT_A, -360)             # set the target speed for motor A in Degrees Per Second
-        #BP.set_motor_dps(BP.PORT_B, 360) 
+    BP.set_motor_position(BP.PORT_A, target_degrees)
+    BP.set_motor_position(BP.PORT_B, target_degrees)
 
-        #time.sleep(1.0)
-        
+    while True:
+        status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
+        status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
+        print(f"Motor A | status={status_a} power={power_a}% enc={enc_a:.1f}° dps={dps_a:.1f}")
+        print(f"Motor B | status={status_b} power={power_b}% enc={enc_b:.1f}° dps={dps_b:.1f}")
 
+        if status_a == 0 and status_b == 0:
+            print("Finished via status = 0 signals")
+            break
 
+        if abs(enc_a - target_degrees) < tolerance and abs(enc_b - target_degrees) < tolerance:
+           print("Finished via tolerance < 5")
+           break
+
+        time.sleep(0.01)
 
     BP.reset_all()
-    
-except KeyboardInterrupt: # except the program gets interrupted by Ctrl+C on the keyboard.
-    BP.reset_all()        # Unconfigure the sensors, disable the motors, and restore the LED to the control of the BrickPi3 firmware.

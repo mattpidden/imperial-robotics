@@ -1,0 +1,3 @@
+import brickpi3
+BP = brickpi3.BrickPi3()
+BP.set motor power(BP.PORT_A, 50)

@@ -21,51 +21,42 @@ import brickpi3 # import the BrickPi3 drivers
 
 BP = brickpi3.BrickPi3() # Create an instance of the BrickPi3 class. BP will be the BrickPi3 object.
 
-# cm_per_degree = (360 * 5) / Distance in cm
+tolerance = 10
+cm_per_degree = 104 /(360 * 5)
+# 110, 97, 104, 103.5, 104, 104
 
-# def driveDistance(cm):
-#     BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A))
-#     BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B))
+def driveDistance(left_cm, right_cm):
+    BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A))
+    BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B))
 
-#     target_deg = cm / cm_per_degree
-#     BP.set_motor_position(BP.PORT_A, target_deg)
-#     BP.set_motor_position(BP.PORT_B, target_deg)
+    left_target_degrees = left_cm / cm_per_degree
+    right_target_degrees = right_cm / cm_per_degree
+    BP.set_motor_position(BP.PORT_A, left_target_degrees)
+    BP.set_motor_position(BP.PORT_B, right_target_degrees)
 
-#     while True:
-#         status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
-#         status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
+    while True:
+        status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
+        
+        status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
+        print(f"Motor A | status={status_a} power={power_a}% enc={enc_a:.1f}° dps={dps_a:.1f}")
+        print(f"Motor B | status={status_b} power={power_b}% enc={enc_b:.1f}° dps={dps_b:.1f}")
 
-#         if status_a == 0 and status_b == 0:
-#             break
+        if abs(enc_a - left_target_degrees) < tolerance and abs(enc_b - right_target_degrees) < tolerance:
+            print("Finished via tolerance")
+            break
+        time.sleep(0.05)
+
 
 
 def main():
     BP.set_motor_limits(BP.PORT_A, 50, 360)
     BP.set_motor_limits(BP.PORT_B, 50, 360)
-
-    target_degrees = 360 * 5     # 5 revolutions
-    tolerance = 5
-
-    BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A)) # reset encoder A
-    BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B)) # reset encoder D
     
-    BP.set_motor_position(BP.PORT_A, target_degrees)
-    BP.set_motor_position(BP.PORT_B, target_degrees)
-
-    while True:
-        status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
-        status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
-        print(f"Motor A | status={status_a} power={power_a}% enc={enc_a:.1f}° dps={dps_a:.1f}")
-        print(f"Motor B | status={status_b} power={power_b}% enc={enc_b:.1f}° dps={dps_b:.1f}")
-
-        if status_a == 0 and status_b == 0:
-            print("Finished via status = 0 signals")
-            break
-
-        if abs(enc_a - target_degrees) < tolerance and abs(enc_b - target_degrees) < tolerance:
-           print("Finished via tolerance < 5")
-           break
-
-        time.sleep(0.01)
+    for i in range(5):
+        for i in range(4):
+            driveDistance(48, 48)
+            driveDistance(14.14, -14.14)        
 
     BP.reset_all()
+    
+main()

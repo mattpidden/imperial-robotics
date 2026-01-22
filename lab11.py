@@ -40,17 +40,14 @@ BP = brickpi3.BrickPi3() # Create an instance of the BrickPi3 class. BP will be 
 
 
 def main():
-    try:
-        BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A)) # reset encoder A
-        BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B)) # reset encoder D
-    except IOError as error:
-        print(error)
-    
     BP.set_motor_limits(BP.PORT_A, 50, 360)
     BP.set_motor_limits(BP.PORT_B, 50, 360)
 
     target_degrees = 360 * 5     # 5 revolutions
     tolerance = 5
+
+    BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A)) # reset encoder A
+    BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B)) # reset encoder D
     
     BP.set_motor_position(BP.PORT_A, target_degrees)
     BP.set_motor_position(BP.PORT_B, target_degrees)

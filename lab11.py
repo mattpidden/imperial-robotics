@@ -1,28 +1,34 @@
-#!/usr/bin/env python
-#
-# https://www.dexterindustries.com/BrickPi/
-# https://github.com/DexterInd/BrickPi3
-#
-# Copyright (c) 2016 Dexter Industries
-# Released under the MIT license (http://choosealicense.com/licenses/mit/).
-# For more information, see https://github.com/DexterInd/BrickPi3/blob/master/LICENSE.md
-#
-# This code is an example for running a motor a target speed (specified in Degrees Per Second) set by the encoder of another motor.
-# 
-# Hardware: Connect EV3 or NXT motors to the BrickPi3 motor ports A and D. Make sure that the BrickPi3 is running on a 9v power supply.
-#
-# Results:  When you run this program, motor A speed will be controlled by the position of motor D. Manually rotate motor D, and motor A's speed will change.
-
-from __future__ import print_function # use python 3 syntax but make it compatible with python 2
-from __future__ import division       #                           ''
-
-import time     # import the time library for the sleep function
-import brickpi3 # import the BrickPi3 drivers
+from __future__ import print_function 
+from __future__ import division                               
+import time    
+import brickpi3 
 
 BP = brickpi3.BrickPi3() # Create an instance of the BrickPi3 class. BP will be the BrickPi3 object.
 
+# run3: x = 0.15, y = 0.2
+# run4: x = -0.1, y = -0.4
+# run5: x = 0.6,  y = -0.7
+# run6: x = 0.2,  y = -0.2
+# run7: x = 0.3,  y = 1.2
+# run8: x = 2.2,  y = 0.85
+# run9: x = 0.9,  y = 0.1
+# run10:x = -0.3, y = 0.6
+# run11:x = 0.7,  y = -1.2
+# run12:x = -0.9, y = 0.3
+
+# mean: x= 0.375, y = 0.075
+# x covariance = 0.615625
+# y covariance = 0.473625
+# xy covariance= 0.035865
+
+# [ 0.616  0.036 ]
+# [ 0.036  0.474 ]
+
+
+
 tolerance = 5
-cm_per_degree = 106 /(360 * 5)
+# with pen 107, without 106
+cm_per_degree = 107 /(360 * 5)
 # 110, 97, 104, 103.5, 104, 104
 # 18.2 * pi /4 = 14.2942465738
 
@@ -66,7 +72,8 @@ def main():
         for i in range(3):
             driveDistance(40, 40)
             time.sleep(0.5)
-            driveDistance(13.1, -13.1)
+            # with pen 12.9, without 13.1
+            driveDistance(12.9, -12.9)
             time.sleep(0.5)
         driveDistance(40, 40)
         

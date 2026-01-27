@@ -21,9 +21,10 @@ import brickpi3 # import the BrickPi3 drivers
 
 BP = brickpi3.BrickPi3() # Create an instance of the BrickPi3 class. BP will be the BrickPi3 object.
 
-tolerance = 10
-cm_per_degree = 104 /(360 * 5)
+tolerance = 5
+cm_per_degree = 106 /(360 * 5)
 # 110, 97, 104, 103.5, 104, 104
+# 18.2 * pi /4 = 14.2942465738
 
 def driveDistance(left_cm, right_cm):
     BP.offset_motor_encoder(BP.PORT_A, BP.get_motor_encoder(BP.PORT_A))
@@ -34,28 +35,41 @@ def driveDistance(left_cm, right_cm):
     BP.set_motor_position(BP.PORT_A, left_target_degrees)
     BP.set_motor_position(BP.PORT_B, right_target_degrees)
 
+
+    done_a = False
+    done_b = False
+
     while True:
         status_a, power_a, enc_a, dps_a = BP.get_motor_status(BP.PORT_A)
-        
         status_b, power_b, enc_b, dps_b = BP.get_motor_status(BP.PORT_B)
-        print(f"Motor A | status={status_a} power={power_a}% enc={enc_a:.1f}° dps={dps_a:.1f}")
-        print(f"Motor B | status={status_b} power={power_b}% enc={enc_b:.1f}° dps={dps_b:.1f}")
-
-        if abs(enc_a - left_target_degrees) < tolerance and abs(enc_b - right_target_degrees) < tolerance:
+        
+        if (not done_a) and abs(enc_a - left_target_degrees) < tolerance:
+            BP.set_motor_power(BP.PORT_A, 0)
+            done_a = True
+        if (not done_b) and abs(enc_b - right_target_degrees) < tolerance:
+            BP.set_motor_power(BP.PORT_B, 0)
+            done_b = True
+            
+        if done_a and done_b:
             print("Finished via tolerance")
             break
+            
         time.sleep(0.05)
 
 
 
 def main():
-    BP.set_motor_limits(BP.PORT_A, 50, 360)
-    BP.set_motor_limits(BP.PORT_B, 50, 360)
+    BP.set_motor_limits(BP.PORT_A, 25, 180)
+    BP.set_motor_limits(BP.PORT_B, 25, 180)
     
-    for i in range(5):
-        for i in range(4):
-            driveDistance(48, 48)
-            driveDistance(14.14, -14.14)        
+    for i in range(1):
+        for i in range(3):
+            driveDistance(40, 40)
+            time.sleep(0.5)
+            driveDistance(13.1, -13.1)
+            time.sleep(0.5)
+        driveDistance(40, 40)
+        
 
     BP.reset_all()
     

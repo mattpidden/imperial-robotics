@@ -101,6 +101,12 @@ def main():
     draw_line(40,40,0,40)
     draw_line(0,40,0,0)
     
+    #global robot_x
+    robot_x = 0
+    #global robot_y
+    robot_y = 0
+    robot_a = 0
+    
     particle_set = []
     for i in range(NUM_PARTICLES):
         particle = Particle()
@@ -108,11 +114,11 @@ def main():
     draw_particles(particle_set)
         
         
-    def update_particle_set_distance(distance_x, distance_y):
+    def update_particle_set_distance(distance):
         for particle in particle_set:
             _, _, angle = particle.get_particle()
-            dx = (distance_x + random.gauss(MU, SIGMA)) * math.cos(math.radians(angle))
-            dy = (distance_y + random.gauss(MU, SIGMA)) * math.sin(math.radians(angle))
+            dx = (distance + random.gauss(MU, SIGMA)) * math.cos(math.radians(angle))
+            dy = (distance + random.gauss(MU, SIGMA)) * math.sin(math.radians(angle))
             da = random.gauss(MU, SIGMA_ROTATE)
             particle.update_position(dx, dy, da)
         draw_particles(particle_set)
@@ -123,73 +129,62 @@ def main():
             particle.update_position(0, 0, da)
         draw_particles(particle_set)
     
- 
-    
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(13.7, -13.7)
-    update_particle_set_rotation(90)
-    time.sleep(2)
-    
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(13.7, -13.7)
-    update_particle_set_rotation(90)
-    time.sleep(2)
-    
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(10, 0)
-    time.sleep(2)
-    driveDistance(13.7, -13.7)
-    update_particle_set_rotation(90)
-    time.sleep(2)
-    
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(10, 10)
-    update_particle_set_distance(0, 10)
-    time.sleep(2)
-    driveDistance(13.7, -13.7)
-    update_particle_set_rotation(90)
-    time.sleep(2)
+    def drive_and_set_particle_square(iterations=4, distance=10):
+        for i in range(iterations):
+            driveDistance(distance, distance)
+            update_particle_set_distance(distance)
+            time.sleep(2)
+        rotate_by(90)
+        robot_x, robot_y = estimate_current_pos()
         
-
+    def drive_and_set_particle(distance=10, angle=90):
+        rotate_by(angle)
+        driveDistance(distance, distance)
+        update_particle_set_distance(distance)
+        time.sleep(2)
+        nonlocal robot_x, robot_y, robot_a
+        robot_x, robot_y, robot_a = estimate_current_pos()
+    
+    def rotate_by(angle):
+        CM_PER_DEG = 14.1/90
+        calc_distance = CM_PER_DEG*angle
+        driveDistance(calc_distance, -calc_distance)
+        update_particle_set_rotation(angle)
+        time.sleep(2)
+    
+    def estimate_current_pos():
+        mean_x = 0
+        mean_y = 0
+        mean_a = 0
+        for particle in particle_set:
+            mean_x += particle.x*particle.w
+            mean_y += particle.y*particle.w
+            mean_a += particle.a*particle.w
+        
+        print("mean_x: ",mean_x)
+        print("mean_y: ",mean_y)
+        print("mean_y: ",mean_a)
+        return mean_x, mean_y, mean_a
+    
+    def navigate_to_waypoint(w_x, w_y):
+        dx = w_x - robot_x
+        dy = w_y - robot_y
+        
+        print("rob_x: ",robot_x)
+        print("rob_y: ",robot_y)
+        print("dx: ",dx)
+        print("dy: ",dy)
+        angle = math.degrees(math.atan2(dy, dx)) - robot_a
+        
+        magnitude = math.sqrt(dx*dx + dy*dy)
+        print("magnitude: ",magnitude)
+        print("angle: ",angle)
+        drive_and_set_particle(magnitude, angle)
+        
+    navigate_to_waypoint(30, 30)
+    navigate_to_waypoint(23, 5)
+    navigate_to_waypoint(0, 0)
+    
     BP.reset_all()
     
 main()

@@ -107,6 +107,12 @@ def main():
     robot_y = 0
     robot_a = 0
     
+    #global robot_x
+    robot_x = 0
+    #global robot_y
+    robot_y = 0
+    robot_a = 0
+    
     particle_set = []
     for i in range(NUM_PARTICLES):
         particle = Particle()
@@ -117,6 +123,8 @@ def main():
     def update_particle_set_distance(distance):
         for particle in particle_set:
             _, _, angle = particle.get_particle()
+            dx = (distance + random.gauss(MU, SIGMA)) * math.cos(math.radians(angle))
+            dy = (distance + random.gauss(MU, SIGMA)) * math.sin(math.radians(angle))
             dx = (distance + random.gauss(MU, SIGMA)) * math.cos(math.radians(angle))
             dy = (distance + random.gauss(MU, SIGMA)) * math.sin(math.radians(angle))
             da = random.gauss(MU, SIGMA_ROTATE)

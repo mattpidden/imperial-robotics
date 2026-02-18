@@ -15,13 +15,13 @@ BP.reset_all()
 MOTOR_TOLERANCE = 5
 CM_PER_DEGREE = 107 /(360 * 5)
 CM_PER_DEG = 14.1/90 
-SONAR_OFFSET = 0
-NUM_PARTICLES = 100
+SONAR_OFFSET = 5
+NUM_PARTICLES = 200
 MU = 0
-SIGMA_FORWARD = 3
-SIGMA_ROTATE = 0.05
-SIGMA_ROTATE_ONLY = 0.05
-SIGMA_SONAR = 2
+SIGMA_FORWARD = 5
+SIGMA_ROTATE = 0.1
+SIGMA_ROTATE_ONLY = 0.1
+SIGMA_SONAR = 3
 EPS = 1e-3
 K = 0.01
 STEP_SIZE = 20
@@ -112,7 +112,7 @@ class Particles:
             particle = Particle(self.n, x, y, a)
             self.data.append(particle)
 
-    def update(self, distance, sonar_distance):
+    def update(self, distance, sonar_readings):
         total_weight = 0
         
         for particle in self.data:
@@ -125,13 +125,16 @@ class Particles:
             particle.update(x + dx, y + dy, a + da, particle.w)
             x, y, a = particle.get_particle()
 
-            likelihood = calculate_likelihood(x, y, a, sonar_distance)
-            if likelihood == -1:
-                global num_min_walls_none
-                num_min_walls_none += 1
-                print(f"Number of None walls: {num_min_walls_none}")
+            combined_likelihood = 1.0
+            for sensor_angle, dist_measured in sonar_readings.items():
+                # The actual heading the sonar was pointing
+                target_theta = a + math.radians(sensor_angle)
+                L = calculate_likelihood(x, y, target_theta, dist_measured)
+                
+                # If calculate_likelihood returns -1, use the penalty constant K
+                combined_likelihood *= (L if L != -1 else K)
             
-            particle.update_weight(particle.w * likelihood)
+            particle.update_weight(particle.w * combined_likelihood)
             total_weight += particle.w
             
         cumulative_weight = 0
@@ -147,7 +150,7 @@ class Particles:
                 particle.update_probabilites(cumulative_weight, cumulative_weight + normalized_weight)
                 cumulative_weight += normalized_weight
         
-    def update_rotate(self, angle, sonar_distance):
+    def update_rotate(self, angle, sonar_readings):
         total_weight = 0
         
         for particle in self.data:
@@ -160,13 +163,13 @@ class Particles:
             particle.update(x + dx, y + dy, a + da, particle.w)
             x, y, a = particle.get_particle()
 
-            likelihood = calculate_likelihood(x, y, a, sonar_distance)
-            if likelihood == -1:
-                global num_min_walls_none
-                num_min_walls_none += 1
-                print(f"Number of None walls: {num_min_walls_none}")
+            combined_likelihood = 1.0
+            for sensor_angle, dist_measured in sonar_readings.items():
+                target_theta = a + math.radians(sensor_angle)
+                L = calculate_likelihood(x, y, target_theta, dist_measured)
+                combined_likelihood *= (L if L != -1 else K)
             
-            particle.update_weight(particle.w * likelihood)
+            particle.update_weight(particle.w * combined_likelihood)
             total_weight += particle.w
             
         cumulative_weight = 0
@@ -340,6 +343,7 @@ waypoints.append((84,30))
 
 BP.set_motor_limits(BP.PORT_A, 50, 360)
 BP.set_motor_limits(BP.PORT_B, 50, 360)
+BP.set_motor_limits(BP.PORT_D, 50, 360)
 BP.set_sensor_type(BP.PORT_2, BP.SENSOR_TYPE.NXT_ULTRASONIC)
 time.sleep(1)
 
@@ -353,11 +357,22 @@ particles = Particles(robot_x, robot_y, robot_a)
 def rotate_sonar():
     # measure sonar 90 left, 180 back, 0 forward, 90 right
     # sonar is mounted on motor port D, facing ahead at the start
+    BP.offset_motor_encoder(BP.PORT_D, BP.get_motor_encoder(BP.PORT_D))
+    time.sleep(0.1)
     sonar_readings = {}
-    for angle in [90, 180, 0, -90]:
+    for angle in [0, 90, 180, -90]:
         BP.set_motor_position(BP.PORT_D, angle)
-        time.sleep(0.5) # Give it a moment to rotate
+        # wait until motor movement done in blocking
+        while True:
+            status_d, power_d, enc_d, dps_d = BP.get_motor_status(BP.PORT_D)
+            if abs(enc_d - angle) < MOTOR_TOLERANCE:
+                BP.set_motor_power(BP.PORT_D, 0)
+                break
+            time.sleep(0.02)
+        time.sleep(0.1)
         sonar_readings[angle] = get_median_sonar(BP.PORT_2)
+        print(f"Sonar reading at angle {angle}: {sonar_readings[angle]} cm")
+    BP.set_motor_position(BP.PORT_D, 0)
     return sonar_readings
 
 
@@ -392,9 +407,9 @@ for waypoint in waypoints:
     print(f"distance: {distance}, angle: {angle}")
 
     drive_rotate(angle)
-    sonar_distance = get_median_sonar(BP.PORT_2)    
-    print(f"sonar: {sonar_distance}")
-    particles.update_rotate(angle, sonar_distance)
+    sonar_readings = rotate_sonar()
+    print(f"sonar: {sonar_readings}")
+    particles.update_rotate(angle, sonar_readings)
     particles.draw()
     time.sleep(1)
 
@@ -412,9 +427,9 @@ for waypoint in waypoints:
         drive_distance(current_step, current_step)
         
         # Sense and Update
-        sonar_distance = get_median_sonar(BP.PORT_2)
-        print(f"sonar: {sonar_distance}")
-        particles.update(current_step, sonar_distance)
+        sonar_readings = rotate_sonar()
+        print(f"sonar: {sonar_readings}")
+        particles.update(current_step, sonar_readings)
         particles.draw()
         time.sleep(1)
         particles.resample()
@@ -430,7 +445,7 @@ for waypoint in waypoints:
         total_dist_to_go = math.sqrt(dx**2 + dy**2)
         print(f"Estimated robot position: x: {robot_x:.1f}, y: {robot_y:.1f}, a: {math.degrees(robot_a):.1f} degrees")
 
-        if not last_step and total_dist_to_go < STEP_SIZE / 2:
+        if not last_step and total_dist_to_go > STEP_SIZE / 2:
             # Calculate the required heading to the waypoint
             correction_angle = math.atan2(dy, dx) - robot_a
             print(f"Calculated correction angle (radians): {correction_angle}, (degrees): {math.degrees(correction_angle)}")
@@ -446,8 +461,8 @@ for waypoint in waypoints:
                 drive_rotate(correction_angle)
                 
                 # Update particles for the rotation we just did
-                sonar_distance = get_median_sonar(BP.PORT_2)
-                particles.update_rotate(correction_angle, sonar_distance)
+                sonar_readings = rotate_sonar()
+                particles.update_rotate(correction_angle, sonar_readings)
                 particles.draw()
                 time.sleep(1)
                 

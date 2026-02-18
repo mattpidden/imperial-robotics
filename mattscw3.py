@@ -24,6 +24,7 @@ SIGMA_ROTATE_ONLY = 0.05
 SIGMA_SONAR = 2
 EPS = 1e-3
 K = 0.01
+STEP_SIZE = 20
 
 # DEBUGGING
 num_min_walls_none = 0
@@ -349,6 +350,17 @@ robot_a = 0
 
 particles = Particles(robot_x, robot_y, robot_a)
 
+def rotate_sonar():
+    # measure sonar 90 left, 180 back, 0 forward, 90 right
+    # sonar is mounted on motor port D, facing ahead at the start
+    sonar_readings = {}
+    for angle in [90, 180, 0, -90]:
+        BP.set_motor_position(BP.PORT_D, angle)
+        time.sleep(0.5) # Give it a moment to rotate
+        sonar_readings[angle] = get_median_sonar(BP.PORT_2)
+    return sonar_readings
+
+
 def get_median_sonar(port, num_readings=10):
     readings = []
     while len(readings) < num_readings:
@@ -379,8 +391,6 @@ for waypoint in waypoints:
     distance = math.sqrt(dx*dx + dy*dy)
     print(f"distance: {distance}, angle: {angle}")
 
-    
-
     drive_rotate(angle)
     sonar_distance = get_median_sonar(BP.PORT_2)    
     print(f"sonar: {sonar_distance}")
@@ -388,18 +398,66 @@ for waypoint in waypoints:
     particles.draw()
     time.sleep(1)
 
-    drive_distance(distance, distance)
-    sonar_distance = get_median_sonar(BP.PORT_2)    
-    print(f"sonar: {sonar_distance}")
-    particles.update(distance, sonar_distance)
-    particles.draw()
-    time.sleep(1)
+    total_dist_to_go = math.sqrt(dx**2 + dy**2)
 
-    particles.resample()
-    particles.draw()
-    time.sleep(1)
+    while total_dist_to_go > 0.5: # Use a small epsilon instead of 0
+        # Determine step size
+        last_step = False
+        current_step = min(STEP_SIZE, total_dist_to_go)
+        if current_step == total_dist_to_go:
+            last_step = True
+        print(f"Driving step: {current_step:.1f}cm (Remaining: {total_dist_to_go:.1f}cm)")
+
+        # Move the physical robot
+        drive_distance(current_step, current_step)
+        
+        # Sense and Update
+        sonar_distance = get_median_sonar(BP.PORT_2)
+        print(f"sonar: {sonar_distance}")
+        particles.update(current_step, sonar_distance)
+        particles.draw()
+        time.sleep(1)
+        particles.resample()
+        particles.draw()
+        
+        # Get updated position estimate to adjust for the next chunk
+        robot_x, robot_y, robot_a = particles.estimate_current_pos()
+        
+        
+        # Recalculate distance to waypoint based on NEW estimated position
+        dx = w_x - robot_x
+        dy = w_y - robot_y
+        total_dist_to_go = math.sqrt(dx**2 + dy**2)
+        print(f"Estimated robot position: x: {robot_x:.1f}, y: {robot_y:.1f}, a: {math.degrees(robot_a):.1f} degrees")
+
+        if not last_step and total_dist_to_go < STEP_SIZE / 2:
+            # Calculate the required heading to the waypoint
+            correction_angle = math.atan2(dy, dx) - robot_a
+            print(f"Calculated correction angle (radians): {correction_angle}, (degrees): {math.degrees(correction_angle)}")
+            # Find the difference from our current estimated heading
+            # Normalize to shortest path (-pi to pi)
+            correction_angle = math.atan2(math.sin(correction_angle), math.cos(correction_angle))
+            print(f"Normalized correction angle (radians): {correction_angle}, (degrees): {math.degrees(correction_angle)}")
+
+            # Only correct if the error is meaningful (e.g., > 2-3 degrees)
+            # Constant adjustments for tiny errors can actually add more noise
+            if abs(math.degrees(correction_angle)) > 3.0:
+                print(f"Adjusting heading by {math.degrees(correction_angle):.1f} degrees")
+                drive_rotate(correction_angle)
+                
+                # Update particles for the rotation we just did
+                sonar_distance = get_median_sonar(BP.PORT_2)
+                particles.update_rotate(correction_angle, sonar_distance)
+                particles.draw()
+                time.sleep(1)
+                
+                # Update our variables again after the rotation correction
+                robot_x, robot_y, robot_a = particles.estimate_current_pos()
+
+        if last_step:
+            break
 
     robot_x, robot_y, robot_a = particles.estimate_current_pos()
-    print(f"new robot position: {robot_x}, {robot_y}, {robot_a}")
+    print(f"robot position: {robot_x}, {robot_y}, {robot_a}")
 
 BP.reset_all()
